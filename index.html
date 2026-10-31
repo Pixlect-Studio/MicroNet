@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MicroNet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000;
+    --surface:#0a0a0a;
+    --surface-2:#131313;
+    --line:#2a2a2a;
+    --line-bright:#3d3d3d;
+    --text:#e8e8e8;
+    --muted:#8a8a8a;
+    --dim:#5a5a5a;
+    --accent:#6ea8fe;
+    --accent-bright:#9dc4ff;
+    --green:#7ee7c7;
+    --danger:#ff6b81;
+    --pixel:'Press Start 2P',monospace;
+    --body:'VT323',monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    font-size:18px;
+    line-height:1.4;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+
+  /* CRT scanlines */
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,.18) 0px,
+      rgba(0,0,0,.18) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events:none;
+    z-index:9999;
+    mix-blend-mode:multiply;
+  }
+  /* vignette */
+  body::after{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.55) 100%);
+    pointer-events:none;
+    z-index:9998;
+  }
+
+  /* ============================================================
+     PIXLECT ACCOUNT WIDGET
+     ============================================================ */
+  #account-widget{
+    position:fixed;
+    top:16px;
+    right:16px;
+    z-index:200;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--body);
+    max-width:min(380px,calc(100vw - 32px));
+  }
+  #pixlect-login{
+    padding:10px 16px;
+    background:var(--surface);
+    color:var(--text);
+    border:2px solid var(--line-bright);
+    font-family:var(--pixel);
+    font-size:9px;
+    letter-spacing:1px;
+    cursor:pointer;
+    transition:transform .08s,box-shadow .08s,border-color .12s,color .12s;
+    box-shadow:4px 4px 0 #000;
+  }
+  #pixlect-login:hover{
+    border-color:var(--accent);
+    color:var(--accent-bright);
+    transform:translate(-2px,-2px);
+    box-shadow:6px 6px 0 #000;
+  }
+  #pixlect-login:active{
+    transform:translate(2px,2px);
+    box-shadow:2px 2px 0 #000;
+  }
+  #pixlect-user{
+    background:var(--surface);
+    border:2px solid var(--line-bright);
+    padding:8px 12px;
+    color:var(--text);
+    font-family:var(--body);
+    font-size:16px;
+    box-shadow:4px 4px 0 #000;
+  }
+  #pixlect-user:empty{display:none}
+  #pixlect-user strong{color:var(--text);font-weight:400}
+  #pixlect-user small{color:var(--muted);font-size:14px}
+  #pixlect-user button:hover{
+    border-color:var(--accent)!important;
+    color:var(--accent-bright)!important;
+  }
+
+  /* ============================================================
+     TOP BAR (results / legal views)
+     ============================================================ */
+  #topbar{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    padding:16px 24px;
+    border-bottom:2px solid var(--line);
+    background:var(--bg);
+    flex-shrink:0;
+    position:sticky;
+    top:0;
+    z-index:100;
+    padding-right:200px;
+  }
+  #topbar.hidden{display:none}
+  .mini-logo{
+    font-family:var(--pixel);
+    font-size:16px;
+    letter-spacing:2px;
+    color:var(--text);
+    text-decoration:none;
+    cursor:pointer;
+    text-shadow:3px 3px 0 var(--accent);
+    user-select:none;
+    padding:4px 0;
+  }
+  .mini-logo:hover{color:var(--accent-bright)}
+  .mini-logo b{color:var(--accent)}
+
+  /* ============================================================
+     MAIN + VIEWS
+     ============================================================ */
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+  }
+  .view{display:none;flex:1}
+  .view.active{display:flex;flex-direction:column}
+
+  /* ---------- HOME ---------- */
+  #view-home.active{
+    align-items:center;
+    justify-content:center;
+    padding:40px 24px 20px;
+    gap:36px;
+  }
+  .big-logo{
+    font-family:var(--pixel);
+    font-size:clamp(28px,6vw,56px);
+    letter-spacing:6px;
+    margin:0;
+    line-height:1.2;
+    color:var(--text);
+    text-shadow:
+      4px 4px 0 var(--accent),
+      8px 8px 0 rgba(110,168,254,.25);
+    user-select:none;
+    text-align:center;
+  }
+  .big-logo b{color:var(--accent)}
+  .tagline{
+    margin:-20px 0 0;
+    color:var(--muted);
+    font-size:20px;
+    letter-spacing:1px;
+    text-align:center;
+  }
+
+  /* ---------- SEARCH FORM & LANG SELECT ---------- */
+  .search-form{
+    display:flex;
+    width:100%;
+    max-width:680px;
+    position:relative;
+  }
+  .search-form input{
+    flex:1;
+    height:56px;
+    padding:0 18px;
+    background:var(--surface);
+    border:3px solid var(--line-bright);
+    border-right:none;
+    color:var(--text);
+    font-family:var(--body);
+    font-size:22px;
+    outline:none;
+    transition:border-color .12s,background .12s;
+  }
+  .search-form input::placeholder{color:var(--dim)}
+  
+  .search-form select{
+    height:56px;
+    background:var(--surface);
+    border:3px solid var(--line-bright);
+    border-right:none;
+    border-left:none;
+    color:var(--text);
+    font-family:var(--body);
+    font-size:18px;
+    outline:none;
+    cursor:pointer;
+    padding:0 10px;
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url('data:image/svg+xml;utf8,<svg fill="%23e8e8e8" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat:no-repeat;
+    background-position:right 4px center;
+    padding-right:24px;
+  }
+  .search-form select:focus {
+    border-color:var(--accent);
+    background-color:var(--surface-2);
+  }
+
+  .search-form button{
+    height:56px;
+    padding:0 28px;
+    background:var(--accent);
+    color:#000;
+    border:3px solid var(--accent);
+    font-family:var(--pixel);
+    font-size:11px;
+    letter-spacing:1px;
+    cursor:pointer;
+    transition:transform .08s,filter .08s,box-shadow .08s;
+    box-shadow:5px 5px 0 #000;
+  }
+  .search-form button:hover{
+    filter:brightness(1.12);
+    transform:translate(-2px,-2px);
+    box-shadow:7px 7px 0 #000;
+  }
+  .search-form button:active{
+    transform:translate(3px,3px);
+    box-shadow:2px 2px 0 #000;
+  }
+
+  /* Compact version for topbar */
+  .search-form.compact{max-width:none;flex:1}
+  .search-form.compact input{height:42px;font-size:18px;padding:0 14px}
+  .search-form.compact select{height:42px;font-size:16px}
+  .search-form.compact button{height:42px;padding:0 20px;font-size:9px}
+
+  /* ---------- SHORTCUTS ---------- */
+  #shortcuts{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    max-width:640px;
+  }
+  #shortcuts:empty{display:none}
+  .chip{
+    padding:8px 14px;
+    background:var(--surface);
+    border:2px solid var(--line-bright);
+    color:var(--text);
+    font-family:var(--body);
+    font-size:16px;
+    cursor:pointer;
+    text-decoration:none;
+    transition:background .1s,border-color .1s,color .1s;
+    letter-spacing:1px;
+  }
+  .chip:hover{
+    border-color:var(--accent);
+    color:var(--accent-bright);
+    background:var(--surface-2);
+  }
+  .chip::before{
+    content:'▸ ';
+    color:var(--green);
+    margin-right:2px;
+  }
+
+  /* ============================================================
+     RESULTS
+     ============================================================ */
+  #view-results.active{padding:0 0 20px}
+  .results-inner{
+    max-width:760px;
+    width:100%;
+    margin:0 auto;
+    padding:20px 24px;
+  }
+  .results-stats{
+    color:var(--muted);
+    font-size:17px;
+    letter-spacing:1px;
+    margin-bottom:24px;
+    padding-bottom:14px;
+    border-bottom:2px solid var(--line);
+  }
+  .results-stats b{color:var(--text);font-weight:400}
+  .result{margin-bottom:32px}
+  .result-tag{
+    display:inline-block;
+    font-family:var(--pixel);
+    font-size:8px;
+    letter-spacing:1px;
+    padding:4px 8px;
+    margin-bottom:10px;
+    color:var(--green);
+    background:rgba(126,231,199,.08);
+    border:2px solid rgba(126,231,199,.35);
+  }
+  .result-title{
+    display:block;
+    font-family:var(--pixel);
+    font-size:13px;
+    line-height:1.6;
+    color:var(--accent-bright);
+    text-decoration:none;
+    cursor:pointer;
+    margin-bottom:8px;
+    padding:2px 0;
+    word-break:break-word;
+  }
+  .result-title:hover{
+    color:var(--accent);
+    text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  .result-url{
+    display:block;
+    font-family:var(--body);
+    font-size:16px;
+    color:var(--green);
+    margin-bottom:8px;
+    letter-spacing:1px;
+    word-break:break-all;
+    opacity:.9;
+  }
+  .result-url::before{
+    content:'>> ';
+    color:var(--dim);
+  }
+  .result-url .arrow{color:var(--dim);margin-left:6px}
+  .result-desc{
+    margin:0;
+    font-family:var(--body);
+    font-size:19px;
+    line-height:1.5;
+    color:var(--muted);
+    letter-spacing:.5px;
+  }
+  .result-desc mark{
+    background:rgba(255,200,87,.2);
+    color:#ffd97a;
+    padding:0 2px;
+  }
+  .empty{
+    text-align:center;
+    padding:40px 20px;
+    color:var(--muted);
+  }
+  .empty h2{
+    font-family:var(--pixel);
+    font-size:16px;
+    color:var(--danger);
+    margin:0 0 16px;
+    letter-spacing:1px;
+  }
+  .empty p{
+    margin:0 auto 12px;
+    max-width:480px;
+    font-size:19px;
+    line-height:1.5;
+  }
+  .empty code{
+    background:var(--surface-2);
+    padding:2px 8px;
+    color:var(--accent);
+    border:1px solid var(--line);
+  }
+  .suggestions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    flex-wrap:wrap;
+    margin-top:24px;
+  }
+
+  /* ============================================================
+     LEGAL VIEWS
+     ============================================================ */
+  #view-privacy.active,
+  #view-terms.active{padding:0 0 40px}
+  .legal{
+    max-width:720px;
+    margin:0 auto;
+    padding:32px 24px;
+  }
+  .legal h1{
+    font-family:var(--pixel);
+    font-size:22px;
+    letter-spacing:2px;
+    margin:0 0 8px;
+    color:var(--text);
+    text-shadow:3px 3px 0 var(--accent);
+    line-height:1.4;
+  }
+  .legal .updated{
+    color:var(--muted);
+    font-size:16px;
+    margin:0 0 28px;
+    padding-bottom:16px;
+    border-bottom:2px solid var(--line);
+    letter-spacing:1px;
+  }
+  .legal h2{
+    font-family:var(--pixel);
+    font-size:13px;
+    letter-spacing:1px;
+    color:var(--accent);
+    margin:32px 0 12px;
+    line-height:1.5;
+  }
+  .legal p{
+    font-size:20px;
+    line-height:1.55;
+    color:#c8c8c8;
+    margin:0 0 16px;
+    letter-spacing:.5px;
+  }
+  .legal ul{padding-left:24px;margin:0 0 16px}
+  .legal li{
+    font-size:20px;
+    line-height:1.5;
+    color:#c8c8c8;
+    margin-bottom:8px;
+    letter-spacing:.5px;
+  }
+  .legal li::marker{color:var(--green)}
+  .legal a{
+    color:var(--accent);
+    text-decoration:none;
+    border-bottom:1px dashed var(--accent);
+  }
+  .legal a:hover{
+    color:var(--accent-bright);
+    border-bottom-style:solid;
+  }
+  .legal code{
+    background:var(--surface-2);
+    padding:2px 8px;
+    color:var(--green);
+    border:1px solid var(--line);
+    font-family:var(--body);
+    font-size:18px;
+  }
+  .back-link{
+    display:inline-block;
+    font-family:var(--pixel);
+    font-size:10px;
+    letter-spacing:1px;
+    color:var(--muted);
+    text-decoration:none;
+    padding:8px 14px;
+    border:2px solid var(--line);
+    margin-top:24px;
+    cursor:pointer;
+    background:transparent;
+    transition:.12s;
+  }
+  .back-link:hover{
+    color:var(--accent);
+    border-color:var(--accent);
+  }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer{
+    flex-shrink:0;
+    border-top:2px solid var(--line);
+    padding:14px 24px;
+    display:flex;
+    gap:14px;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+    background:var(--surface);
+    font-size:16px;
+    letter-spacing:1px;
+    color:var(--muted);
+  }
+  footer a{
+    color:var(--muted);
+    text-decoration:none;
+    cursor:pointer;
+    border-bottom:1px dashed transparent;
+    transition:.12s;
+    padding:2px 0;
+  }
+  footer a:hover{
+    color:var(--accent);
+    border-bottom-color:var(--accent);
+  }
+  footer .pixlect{
+    color:var(--text);
+    font-family:var(--pixel);
+    font-size:9px;
+    letter-spacing:1px;
+    text-decoration:none;
+    border-bottom:none;
+    transition:.12s;
+  }
+  footer .pixlect:hover{
+    color:var(--accent-bright);
+    text-shadow:2px 2px 0 rgba(110,168,254,.4);
+    border-bottom:none;
+  }
+  footer .sep{color:var(--dim);user-select:none}
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width:600px){
+    #account-widget{top:10px;right:10px}
+    #pixlect-login{font-size:8px;padding:8px 12px}
+    #pixlect-user{font-size:14px;padding:6px 10px}
+    #topbar{padding:12px 16px;gap:12px;padding-right:16px}
+    .mini-logo{font-size:12px;text-shadow:2px 2px 0 var(--accent)}
+    
+    .search-form{flex-wrap:wrap}
+    .search-form input{width:100%;border-right:3px solid var(--line-bright);border-bottom:none}
+    .search-form select{width:100%;border-left:3px solid var(--line-bright);border-bottom:none}
+    .search-form button{width:100%;border-left:3px solid var(--accent)}
+    
+    .search-form.compact input{font-size:16px;padding:0 10px;height:38px;border-width:2px}
+    .search-form.compact select{font-size:14px;height:38px;border-width:2px}
+    .search-form.compact button{font-size:8px;padding:0 12px;height:38px;border-width:2px}
+    
+    .results-inner{padding:16px}
+    .legal{padding:20px 16px}
+    .legal h1{font-size:16px}
+    footer{padding:12px 16px;font-size:14px;gap:8px}
+    footer .pixlect{font-size:8px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     PIXLECT ACCOUNT WIDGET
+     ============================================================ -->
+<div id="account-widget">
+  <button id="pixlect-login" type="button">Sign in with PIXLECT</button>
+  <div id="pixlect-user"></div>
+</div>
+
+<header id="topbar" class="hidden">
+  <a class="mini-logo" data-nav="home"><b>MICRO</b>NET</a>
+  <form id="topForm" class="search-form compact">
+    <input id="topInput" type="search" placeholder="Search..." autocomplete="off" spellcheck="false">
+    <select id="topLang">
+      <option value="all">🌐 All</option>
+      <option value="en">🇬🇧 EN</option>
+      <option value="ru">🇷🇺 RU</option>
+      <option value="es">🇪🇸 ES</option>
+      <option value="fr">🇫🇷 FR</option>
+      <option value="de">🇩🇪 DE</option>
+      <option value="zh">🇨🇳 ZH</option>
+      <option value="ja">🇯🇵 JA</option>
+      <option value="hi">🇮🇳 HI</option>
+      <option value="ur">🇵🇰 UR</option>
+    </select>
+    <button type="submit">GO</button>
+  </form>
+</header>
+
+<main>
+  <!-- HOME -->
+  <section id="view-home" class="view active">
+    <h1 class="big-logo"><b>MICRO</b>NET</h1>
+    <p class="tagline" id="tagline">The pixelated search engine</p>
+    <form id="homeForm" class="search-form">
+      <input id="homeInput" type="search" placeholder="Search MicroNet..." autocomplete="off" spellcheck="false" autofocus>
+      <select id="homeLang">
+        <option value="all">🌐 All</option>
+        <option value="en">🇬🇧 EN</option>
+        <option value="ru">🇷🇺 RU</option>
+        <option value="es">🇪🇸 ES</option>
+        <option value="fr">🇫🇷 FR</option>
+        <option value="de">🇩🇪 DE</option>
+        <option value="zh">🇨🇳 ZH</option>
+        <option value="ja">🇯🇵 JA</option>
+        <option value="hi">🇮🇳 HI</option>
+        <option value="ur">🇵🇰 UR</option>
+      </select>
+      <button type="submit">SEARCH</button>
+    </form>
+    <div id="shortcuts"></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="view-results" class="view">
+    <div class="results-inner">
+      <div class="results-stats" id="resultsStats"></div>
+      <div id="resultsList"></div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section id="view-privacy" class="view">
+    <div class="legal">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: forever ago · Effective: now</p>
+      <h2>WHAT WE COLLECT</h2>
+      <p>Nothing. MicroNet is a static site. There is no server, no database, no analytics, and no tracker. Your searches are computed entirely in your browser using the local <code>sites.json</code> file.</p>
+      <h2>PIXLECT ACCOUNT</h2>
+      <p>If you sign in with PIXLECT, your session is encrypted and stored in your browser's <code>localStorage</code> under the key <code>microneet:pixlect_user</code>. It never leaves your device unencrypted.</p>
+      <a class="back-link" data-nav="home">‹ BACK TO SEARCH</a>
+    </div>
+  </section>
+
+  <!-- TERMS -->
+  <section id="view-terms" class="view">
+    <div class="legal">
+      <h1>Terms of Service</h1>
+      <p class="updated">Last updated: forever ago · Effective: now</p>
+      <h2>ACCEPTANCE</h2>
+      <p>By using MicroNet, you agree to these terms. If you do not agree, close the tab.</p>
+      <h2>WHAT MICRONET IS</h2>
+      <p>MicroNet is a hobby search engine built by <a href="https://www.pixlect-studios.com" target="_blank" rel="noopener">PIXLECT Studios</a>. It searches a curated index of public sites listed in <code>sites.json</code>.</p>
+      <a class="back-link" data-nav="home">‹ BACK TO SEARCH</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Made By <a class="pixlect" href="https://www.pixlect-studios.com" target="_blank" rel="noopener">PIXLECT STUDIOS</a></span>
+  <span class="sep">·</span>
+  <a data-nav="privacy">Privacy Policy</a>
+  <span class="sep">·</span>
+  <a data-nav="terms">Terms of Service</a>
+</footer>
+
+<script>
+const state = { sites: [], loaded: false };
+
+const $ = id => document.getElementById(id);
+const homeForm     = $('homeForm');
+const homeInput    = $('homeInput');
+const homeLang     = $('homeLang');
+const topForm      = $('topForm');
+const topInput     = $('topInput');
+const topLang      = $('topLang');
+const topbar       = $('topbar');
+const shortcuts    = $('shortcuts');
+const resultsList  = $('resultsList');
+const resultsStats = $('resultsStats');
+const tagline      = $('tagline');
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function normalizeUrl(raw){
+  let u = (raw || '').trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+function prettyUrl(u){
+  try {
+    const p = new URL(u);
+    return p.host + p.pathname.replace(/\/$/, '');
+  } catch { return u; }
+}
+
+function showView(name, opts = {}){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const view = $('view-' + name);
+  if (view) view.classList.add('active');
+
+  if (name === 'home'){
+    topbar.classList.add('hidden');
+  } else {
+    topbar.classList.remove('hidden');
+    if (opts.q !== undefined) topInput.value = opts.q;
+    if (opts.lang !== undefined) topLang.value = opts.lang;
+  }
+  window.scrollTo(0, 0);
+  if (name === 'home') setTimeout(() => homeInput.focus(), 30);
+}
+
+// --- LANGUAGE DETECTION LOGIC ---
+function matchesLanguage(site, langCode) {
+  if (!langCode || langCode === 'all') return true;
+  langCode = langCode.toLowerCase();
+  
+  const url = (site.url || '').toLowerCase();
+  const domain = (site.domain || '').toLowerCase();
+  const htmlLang = (site.extras && site.extras.lang || '').toLowerCase();
+
+  // 1. Check HTML lang attribute from scraper (e.g. "en", "en-US", "ru")
+  if (htmlLang.startsWith(langCode)) return true;
+
+  // 2. Check URL structures like "ru.wikipedia.org", "site.com/ru/", "site.com/ru-us"
+  // Regex: match langCode surrounded by domain separators (., /, -, start/end)
+  const regex = new RegExp(`(^|\\.|\\/|\\-)${langCode}($|\\.|\\/|\\-)`);
+  if (regex.test(url) || regex.test(domain)) return true;
+
+  // 3. Check common Country Code TLDs for that language
+  const tld = domain.split('.').pop();
+  const langTlds = {
+    ru: ['ru', 'su', 'by', 'kz'],
+    en: ['us', 'uk', 'co.uk', 'ca', 'au', 'nz', 'ie', 'za'],
+    es: ['es', 'mx', 'ar', 'co', 'cl', 'pe'],
+    fr: ['fr', 'ca', 'be', 'ch'],
+    de: ['de', 'at', 'ch'],
+    ja: ['jp'],
+    zh: ['cn', 'tw', 'hk', 'sg'],
+    hi: ['in'],
+    ur: ['pk']
+  };
+  
+  if (langTlds[langCode] && langTlds[langCode].includes(tld)) return true;
+
+  return false;
+}
+
+function search(query, lang){
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+
+  const out = [];
+  for (const site of state.sites){
+    // Filter out sites that don't match the selected language
+    if (!matchesLanguage(site, lang)) continue;
+
+    const title = (site.title || '').toLowerCase();
+    const desc  = (site.description || '').toLowerCase();
+    const dom   = (site.domain || '').toLowerCase();
+    const tag   = (site.tag || '').toLowerCase();
+    const hay   = `${title} ${desc} ${dom} ${tag}`;
+
+    let score = 0, allMatch = true;
+    for (const t of terms){
+      if (!hay.includes(t)){ allMatch = false; break; }
+      if (title.includes(t)) score += 10;
+      if (dom.includes(t))   score += 6;
+      if (tag.includes(t))   score += 4;
+      if (desc.includes(t))  score += 3;
+      if (title.startsWith(t)) score += 5;
+    }
+    if (allMatch) out.push({ site, score });
+  }
+  
+  return out.sort((a,b) => {
+    const ptsA = a.site.pts || 0;
+    const ptsB = b.site.pts || 0;
+    if (ptsA !== ptsB) return ptsB - ptsA;
+    return b.score - a.score;
+  }).map(r => r.site);
+}
+
+function highlight(text, terms){
+  if (!terms.length) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const pattern = terms
+    .filter(Boolean)
+    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  if (!pattern) return escaped;
+  return escaped.replace(new RegExp('('+pattern+')','gi'),'<mark>$1</mark>');
+}
+
+function renderResults(query, results, lang){
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+
+  resultsStats.innerHTML = results.length
+    ? `<b>${results.length}</b> result${results.length===1?'':'s'} for "<b>${escapeHtml(query)}</b>" ${lang !== 'all' ? `in <b>${lang.toUpperCase()}</b>` : ''}`
+    : `No results for "<b>${escapeHtml(query)}</b>" ${lang !== 'all' ? `in <b>${lang.toUpperCase()}</b>` : ''}`;
+
+  if (!results.length){
+    resultsList.innerHTML = `
+      <div class="empty">
+        <h2>404 — NO MATCHES</h2>
+        <p>Try changing the language filter or search term.</p>
+        <div class="suggestions">
+          ${state.sites.slice(0,6).map(s=>`
+            <a class="chip" data-q="${escapeHtml(s.tag || s.domain)}">${escapeHtml(s.title || s.domain)}</a>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    resultsList.querySelectorAll('.chip').forEach(chip=>{
+      chip.addEventListener('click',()=>navigateSearch(chip.dataset.q, 'all'));
+    });
+    return;
+  }
+
+  resultsList.innerHTML = results.map(site => {
+    const url = normalizeUrl(site.url || site.domain);
+    const display = prettyUrl(url);
+    return `
+      <div class="result">
+        ${site.tag?`<span class="result-tag">${escapeHtml(site.tag)}</span>`:''}
+        <a class="result-title" data-url="${escapeHtml(url)}">${highlight(site.title || site.domain, terms)}</a>
+        <span class="result-url">${highlight(display, terms)}<span class="arrow">↗</span></span>
+        <p class="result-desc">${highlight(site.description || '', terms)}</p>
+      </div>
+    `;
+  }).join('');
+
+  resultsList.querySelectorAll('.result-title').forEach(el=>{
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      window.location.assign(el.dataset.url);
+    });
+  });
+}
+
+function navigateSearch(q, lang){
+  q = (q || '').trim();
+  if (!q) return;
+  const params = new URLSearchParams();
+  params.set('q', q);
+  if (lang && lang !== 'all') params.set('lang', lang);
+  window.location.hash = '/search?' + params.toString();
+}
+
+function route(){
+  const hash = window.location.hash.slice(1) || '/';
+
+  if (hash === '/privacy'){
+    showView('privacy');
+    document.title = 'Privacy Policy — MicroNet';
+    return;
+  }
+  if (hash === '/terms'){
+    showView('terms');
+    document.title = 'Terms of Service — MicroNet';
+    return;
+  }
+  if (hash.startsWith('/search')){
+    const qs = hash.split('?')[1] || '';
+    const params = new URLSearchParams(qs);
+    const q = params.get('q') || '';
+    const lang = params.get('lang') || 'all';
+    
+    if (!q){ window.location.hash = '/'; return; }
+    
+    showView('results', { q, lang });
+    document.title = q + ' — MicroNet';
+    if (state.loaded){
+      renderResults(q, search(q, lang), lang);
+    } else {
+      resultsStats.textContent = 'Loading index...';
+      resultsList.innerHTML = '<div class="empty"><p>Loading sites.json…</p></div>';
+    }
+    return;
+  }
+  showView('home');
+  document.title = 'MicroNet';
+}
+
+homeForm.addEventListener('submit', e => {
+  e.preventDefault();
+  navigateSearch(homeInput.value, homeLang.value);
+});
+topForm.addEventListener('submit', e => {
+  e.preventDefault();
+  navigateSearch(topInput.value, topLang.value);
+});
+
+document.addEventListener('click', e => {
+  const nav = e.target.closest('[data-nav]');
+  if (nav){
+    e.preventDefault();
+    const t = nav.dataset.nav;
+    window.location.hash = (t === 'home') ? '/' : '/' + t;
+  }
+});
+
+function buildShortcuts(){
+  if (!state.sites.length){ shortcuts.innerHTML = ''; return; }
+  const seen = new Set();
+  const picks = [];
+  for (const s of state.sites){
+    const key = (s.tag || s.title || s.domain || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    picks.push({ label: s.tag || (s.title || '').split(' ')[0], q: s.title || s.domain });
+    if (picks.length >= 6) break;
+  }
+  shortcuts.innerHTML = picks.map(p =>
+    `<a class="chip" data-q="${escapeHtml(p.q)}">${escapeHtml(p.label)}</a>`
+  ).join('');
+  shortcuts.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => navigateSearch(chip.dataset.q, 'all'));
+  });
+}
+
+function loadError(err){
+  const isFile = location.protocol === 'file:';
+  resultsStats.textContent = 'Could not load sites.json';
+  resultsList.innerHTML = `
+    <div class="empty">
+      <h2>LOAD ERROR</h2>
+      <p>${escapeHtml(String(err && err.message || err))}</p>
+      ${isFile ? `
+        <p>You opened this file from disk. Browsers block <code>fetch()</code> on <code>file://</code>. Serve the folder (Live Server, <code>python -m http.server</code>, etc.).</p>
+      ` : `
+        <p>Check that <code>sites.json</code> sits next to this HTML file and is valid JSON.</p>
+      `}
+    </div>
+  `;
+}
+
+fetch('sites.json', { cache: 'no-store' })
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(list => {
+    if (!Array.isArray(list)) throw new Error('sites.json must be an array');
+    state.sites = list;
+    state.loaded = true;
+    buildShortcuts();
+    route();
+  })
+  .catch(loadError);
+
+window.addEventListener('hashchange', route);
+route();
+</script>
+
+<!-- ============================================================
+     PIXLECT AUTH
+     ============================================================ -->
+<script src="pixlect-crypto.js"></script>
+<script src="microneet-auth.js"></script>
+
+<script>
+(function () {
+  function hookAuth() {
+    if (!window.MicroNetAuth){
+      setTimeout(hookAuth, 50);
+      return;
+    }
+    window.MicroNetAuth.onChange(function (user) {
+      if (!tagline) return;
+      if (user && user.username){
+        tagline.textContent = 'Welcome back, ' + user.username;
+      } else {
+        tagline.textContent = 'The pixelated search engine';
+      }
+    });
+  }
+  hookAuth();
+})();
+</script>
+</body>
+</html>

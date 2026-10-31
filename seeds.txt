@@ -1,0 +1,67 @@
+# ============================================================
+# MicroNet seeds.txt — curated seed list for scraper_pw.py
+# ------------------------------------------------------------
+# Usage:
+#   python scraper_pw.py seeds.txt --depth 2 --max-pages 40 --delay 1.2
+#   python scraper_pw.py seeds.txt --min-pts 25
+# ============================================================
+
+# ── PIXLECT Studios (your own sites) ─────────────────────────
+https://www.pixlect-studios.com
+https://www.pixeltube.pixlect-studios.com
+https://www.vextoss.pixlect-studios.com
+
+# ── Marketplaces ─────────────────────────────────────────────
+https://daraz.pk
+
+# ── Gaming ───────────────────────────────────────────────────
+https://store.steampowered.com
+https://classic.minecraft.net
+https://eaglercraft.com
+
+# ── Education ────────────────────────────────────────────────
+https://www.beaconhouse.net
+
+# ── Developer Resources ──────────────────────────────────────
+https://github.com
+https://stackoverflow.com
+https://developer.mozilla.org
+https://www.python.org
+
+# ── AI / Hosting / CDN ───────────────────────────────────────
+https://www.deepseek.com
+https://www.hostinger.com
+https://bunny.net
+
+# ── Open Data & Reference ────────────────────────────────────
+https://en.wikipedia.org
+https://www.sec.gov/edgar/searchedgar/companysearch
+https://www.openstreetmap.org
+https://arxiv.org
+https://www.data.gov
+https://www.gutenberg.org
+https://archive.org
+
+# ── Tech & News (Static / Text-Only) ─────────────────────────
+https://news.ycombinator.com
+https://lite.cnn.com
+https://text.npr.org
+https://daringfireball.net
+https://gwern.net
+https://m0yng.uk
+https://flower.codes
+https://fabien.benetou.fr
+
+# ── Classic / Minimal Web ────────────────────────────────────
+https://berkshirehathaway.com
+https://no-html.club
+https://txt.basilikum.monster
+http://info.cern.ch
+http://motherfuckingwebsite.com
+
+# ── Indie Web / Neocities ────────────────────────────────────
+https://neocities.org/browse
+https://aloeloopy.neocities.org
+https://odditycommoddity.neocities.org
+https://ventablack.neocities.org
+https://reavie.neocities.org
